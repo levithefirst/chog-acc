@@ -569,6 +569,8 @@ h1.title::before, h1.title::after{
 #screen-gameover{
   background:radial-gradient(ellipse 70% 50% at 50% 30%, rgba(255,45,175,0.12), transparent 60%), var(--bg-void);
   padding:24px;
+  overflow-y:auto;
+  touch-action:pan-y;
 }
 .go-reveal{
   opacity:0;
@@ -635,6 +637,25 @@ h1.title::before, h1.title::after{
 .share-note{
   margin-top:8px;font-size:11px;color:var(--text-lo);font-style:italic;text-align:center;
 }
+
+.share-actions-row{
+  display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;justify-content:center;
+}
+.share-x-btn, .share-save-btn{
+  font-family:var(--font-display);font-weight:700;font-size:13px;
+  letter-spacing:0.06em;text-transform:uppercase;
+  padding:12px 20px;min-height:44px;border-radius:12px;cursor:pointer;
+  display:flex;align-items:center;gap:7px;
+  transition:transform 0.15s ease;
+}
+.share-x-btn{
+  background:#000;color:#fff;border:1px solid rgba(255,255,255,0.25);
+}
+.share-save-btn{
+  background:rgba(131,110,249,0.1);color:var(--text-hi);
+  border:1px solid rgba(131,110,249,0.4);
+}
+.share-x-btn:active, .share-save-btn:active{transform:scale(0.96);}
 
 /* ================= LEADERBOARD ================= */
 #screen-leaderboard{
@@ -798,6 +819,11 @@ h1.title::before, h1.title::after{
     <button class="leaderboard-btn go-reveal" id="btn-view-leaderboard" style="margin-top:14px;animation-delay:860ms;">🏆 View Leaderboard</button>
     <button class="share-score-btn go-reveal" id="btn-share-score" style="animation-delay:920ms;">📤 Share Score</button>
     <div class="share-note go-reveal" style="animation-delay:960ms;">Link copies automatically – spam it in Discord</div>
+    <div class="share-actions-row go-reveal" style="animation-delay:1000ms;">
+      <button class="share-x-btn" id="btn-share-x">𝕏 Share on X</button>
+      <button class="share-save-btn" id="btn-save-image">💾 Save Image</button>
+    </div>
+    <div class="share-note go-reveal" style="animation-delay:1040ms;">Save Image downloads a card you can attach to your X post</div>
   </section>
 
   <!-- ============ LEADERBOARD ============ -->
@@ -2202,6 +2228,8 @@ const WIN_MESSAGES = [
 ];
 
 let lastShareText = '';
+let lastRunSummary = null;
+const SHARE_LINK = 'https://YOUR-VERCEL-LINK.vercel.app';
 
 function animateCountUp(el, to, duration, delay){
   setTimeout(() => {
@@ -2253,10 +2281,11 @@ function finishRun(reason){
     finalScore >= getGlobalHigh() ? 'New personal best!' : '';
 
   const stageLabel = getColorStageLabel(g.colorProgress);
+  lastRunSummary = { finalScore, character: g.character, colorProgress: g.colorProgress, stageLabel };
   lastShareText =
 `I just ran ${finalScore}m as ${g.character.name} in Chog : The Journey to Robinhood and reached ${stageLabel} 🟩
 
-Play here → https://YOUR-VERCEL-LINK.vercel.app
+Play here → ${SHARE_LINK}
 
 #ChogWorldOrder #Monad`;
 
@@ -2288,6 +2317,113 @@ document.getElementById('btn-share-score').addEventListener('click', async () =>
     document.body.removeChild(ta);
   }
   btn.textContent = '✅ Copied!';
+  setTimeout(() => { btn.textContent = original; }, 1600);
+});
+
+/* ---- Share on X: opens a pre-filled tweet compose window with the link embedded ---- */
+document.getElementById('btn-share-x').addEventListener('click', () => {
+  const text = lastShareText || `Just played Chog : The Journey to Robinhood 🟩\n\nPlay here → ${SHARE_LINK}\n\n#ChogWorldOrder #Monad`;
+  const intentUrl = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text);
+  window.open(intentUrl, '_blank', 'noopener,noreferrer');
+});
+
+/* ---- Save Image: renders a shareable result card and downloads it as a PNG ---- */
+function buildShareCardCanvas(){
+  const summary = lastRunSummary;
+  const W = 1200, H = 675;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  const pal = getPalette(summary ? summary.colorProgress : 0);
+
+  // background
+  const grad = c.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, `rgb(${pal.bgTop})`);
+  grad.addColorStop(1, `rgb(${pal.bgBottom})`);
+  c.fillStyle = grad;
+  c.fillRect(0, 0, W, H);
+
+  // soft accent glow
+  const glow = c.createRadialGradient(W*0.5, H*0.35, 40, W*0.5, H*0.35, 620);
+  glow.addColorStop(0, `rgba(${pal.accent},0.28)`);
+  glow.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = glow;
+  c.fillRect(0, 0, W, H);
+
+  // title
+  c.textAlign = 'center';
+  c.fillStyle = 'rgba(255,255,255,0.55)';
+  c.font = "700 22px 'Rajdhani', sans-serif";
+  c.fillText('CHOG : THE JOURNEY TO ROBINHOOD', W/2, 70);
+
+  if(summary){
+    // character avatar, clipped circle
+    const img = CHARACTER_IMG_CACHE[summary.character.id];
+    const cx = W/2, cy = 230, r = 90;
+    c.save();
+    c.beginPath();
+    c.arc(cx, cy, r, 0, Math.PI*2);
+    c.closePath();
+    c.clip();
+    if(img && img.complete && img.naturalWidth > 0){
+      c.drawImage(img, cx-r, cy-r, r*2, r*2);
+    } else {
+      c.fillStyle = summary.character.color;
+      c.fillRect(cx-r, cy-r, r*2, r*2);
+    }
+    c.restore();
+    c.strokeStyle = `rgb(${pal.accent})`;
+    c.lineWidth = 5;
+    c.beginPath();
+    c.arc(cx, cy, r, 0, Math.PI*2);
+    c.stroke();
+
+    // character name
+    c.fillStyle = '#ffffff';
+    c.font = "700 30px 'Rajdhani', sans-serif";
+    c.fillText(summary.character.name.toUpperCase(), W/2, 358);
+
+    // score
+    c.fillStyle = 'rgba(255,255,255,0.6)';
+    c.font = "600 18px 'Rajdhani', sans-serif";
+    c.fillText('SCORE', W/2, 410);
+    c.fillStyle = '#FFD23F';
+    c.font = "800 96px 'Rajdhani', sans-serif";
+    c.fillText(String(summary.finalScore), W/2, 500);
+
+    // stage reached
+    c.fillStyle = `rgb(${pal.accent})`;
+    c.font = "700 24px 'Rajdhani', sans-serif";
+    c.fillText(summary.stageLabel.toUpperCase(), W/2, 545);
+  }
+
+  // footer link + tag
+  c.fillStyle = 'rgba(255,255,255,0.7)';
+  c.font = "600 20px 'Rajdhani', sans-serif";
+  c.fillText(SHARE_LINK.replace('https://',''), W/2, 610);
+  c.fillStyle = 'rgba(255,255,255,0.4)';
+  c.font = "500 15px 'Inter', sans-serif";
+  c.fillText('#ChogWorldOrder  •  #Monad', W/2, 640);
+
+  return cv;
+}
+
+document.getElementById('btn-save-image').addEventListener('click', () => {
+  const btn = document.getElementById('btn-save-image');
+  const original = btn.textContent;
+  try{
+    const cv = buildShareCardCanvas();
+    const score = lastRunSummary ? lastRunSummary.finalScore : 'run';
+    const link = document.createElement('a');
+    link.download = `chog-run-${score}.png`;
+    link.href = cv.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    btn.textContent = '✅ Saved!';
+  } catch(err){
+    btn.textContent = '⚠️ Failed';
+  }
   setTimeout(() => { btn.textContent = original; }, 1600);
 });
 
