@@ -318,8 +318,11 @@ h1.title::before, h1.title::after{
 .carousel-arrow:hover{background:rgba(131,110,249,0.28);}
 
 .carousel-track-outer{
-  overflow:hidden;width:100%;max-width:920px;
+  overflow-x:hidden;
+  overflow-y:visible;
+  width:100%;max-width:920px;
   cursor:grab;
+  padding:14px 0; /* room for the centered card's scale-up + breathing animation */
 }
 .carousel-track-outer.dragging{cursor:grabbing;}
 .carousel-track{
@@ -712,7 +715,7 @@ h1.title::before, h1.title::after{
     </div>
     <div class="landing-road" aria-hidden="true"></div>
     <div class="landing-inner">
-      <div class="eyebrow-tag">MONAD TRENCHES <b>&rarr;</b> ROBINHOOD GREEN</div>
+      <div class="eyebrow-tag">MONAD <b>&rarr;</b> ROBINHOOD</div>
       <h1 class="title">
         <div class="title-glow" aria-hidden="true"></div>
         <div class="glitch-wrap">
@@ -1366,7 +1369,7 @@ function getColorStageLabel(progress){
 /* ---- obstacle / coin / power-up visuals, drawn at a screen position + scale ---- */
 function drawObstacle(o, scale, sx, sy){
   const c = ctx2;
-  const bw = 44*scale, bh = 50*scale;
+  const bw = 58*scale, bh = 64*scale; // bumped up from 44/50 — obstacles need to read clearly at speed
   c.save();
   c.translate(sx, sy);
   if(o.type === 'sniper'){
@@ -1814,7 +1817,7 @@ function updateGame(){
     g.powerupTimer = gapBase + Math.random()*(240 - g.luckFactor*50);
   }
 
-  const approachRate = 0.012 * (g.speed / g.baseSpeed);
+  const approachRate = 0.0102 * (g.speed / g.baseSpeed); // 15% slower than before (was 0.012) — more reaction time
   const COLLIDE_T = 0.05, NEAR_MISS_T = 0.16, COLLECT_T = 0.07;
 
   // obstacles
@@ -2013,7 +2016,12 @@ function drawGame(){
     const sx = laneX(LANE_OFFSETS[d.ref.lane], t, camW);
     const sy = perspY(t);
     const scale = perspScale(t);
-    if(d.kind === 'obstacle') drawObstacle(d.ref, scale, sx, sy);
+    if(d.kind === 'obstacle'){
+      // obstacles get their own boosted + floored scale so they read clearly
+      // even near the horizon, instead of shrinking to near-invisible dots
+      const obstacleScale = Math.max(scale * 1.55, 0.3);
+      drawObstacle(d.ref, obstacleScale, sx, sy);
+    }
     else if(d.kind === 'coin') drawCoin(d.ref, scale, sx, sy);
     else drawPowerup(d.ref, scale, sx, sy, g.frame);
   });
