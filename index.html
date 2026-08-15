@@ -256,7 +256,7 @@ h1.title::before, h1.title::after{
 
 .meme-line{
   position:absolute;
-  bottom:64px;left:0;right:0;
+  bottom:40px;left:0;right:0;
   text-align:center;
   font-family:var(--font-display);
   font-size:12px;
@@ -266,24 +266,7 @@ h1.title::before, h1.title::after{
   opacity:0.8;
 }
 .meme-line b{color:var(--rh-green);}
-.meme-fades{
-  position:absolute;bottom:34px;left:0;right:0;height:16px;
-  text-align:center;font-size:11px;color:var(--text-lo);
-  font-style:italic;
-  pointer-events:none;
-}
-.fade-phrase{
-  position:absolute;left:0;right:0;top:0;
-  opacity:0;animation:fadeMeme 9s infinite;
-}
-.fade-phrase:nth-child(2){animation-delay:4.5s;}
-@keyframes fadeMeme{
-  0%{opacity:0;transform:translateY(4px);}
-  6%,44%{opacity:0.8;transform:translateY(0);}
-  50%,100%{opacity:0;transform:translateY(-4px);}
-}
 @media (prefers-reduced-motion: reduce){
-  .fade-phrase{animation-duration:0.001s;}
   h1.title,.begin-btn,.char-card.is-selected,.title-glow{animation:none;}
 }
 
@@ -318,11 +301,8 @@ h1.title::before, h1.title::after{
 .carousel-arrow:hover{background:rgba(131,110,249,0.28);}
 
 .carousel-track-outer{
-  overflow-x:hidden;
-  overflow-y:visible;
   width:100%;max-width:920px;
   cursor:grab;
-  padding:14px 0; /* room for the centered card's scale-up + breathing animation */
 }
 .carousel-track-outer.dragging{cursor:grabbing;}
 .carousel-track{
@@ -725,14 +705,9 @@ h1.title::before, h1.title::after{
         </div>
         <span class="line2">TO ROBINHOOD</span>
       </h1>
-      <p class="subtitle">From Monad Trenches to Robinhood Green. Cause Maximum Chaos.</p>
-      <button class="begin-btn" id="btn-begin">Begin The Journey</button>
+      <button class="begin-btn" id="btn-begin" style="margin-top:44px;">Begin The Journey</button>
     </div>
-    <div class="meme-line">Purple <b>&rarr;</b> Robinhood Green &bull; Built for the Chog World Order</div>
-    <div class="meme-fades">
-      <span class="fade-phrase">"wen listing" &mdash; every chog, always</span>
-      <span class="fade-phrase">not financial advice, just vibes and chaos</span>
-    </div>
+    <div class="meme-line">Built for the Chog World Order</div>
   </section>
 
   <!-- ============ CHARACTER SELECT ============ -->
@@ -1005,12 +980,39 @@ function showScreen(name){
     }
   });
 
-  function tick(){
+  // flowing aurora wave bands — the "solid" ambient animation layer,
+  // drawn beneath the particles for a premium, alive backdrop
+  const AURORA_BANDS = [
+    { color:'131,110,249', yBase:0.22, amp:38, freq:0.0032, speed:0.00045, phase:0 },
+    { color:'45,212,191',  yBase:0.42, amp:52, freq:0.0026, speed:0.00032, phase:2 },
+    { color:'0,200,5',     yBase:0.64, amp:40, freq:0.0038, speed:0.0005,  phase:4 }
+  ];
+  function drawAurora(time){
+    AURORA_BANDS.forEach(band => {
+      const yBase = h * band.yBase;
+      // 3 soft passes (wide+faint -> narrow+brighter) fake a glow without an
+      // expensive per-frame canvas blur filter
+      [ [46, 0.05], [26, 0.09], [10, 0.14] ].forEach(([lineWidth, alpha]) => {
+        ctx.beginPath();
+        for(let x=0; x<=w; x+=10){
+          const y = yBase + Math.sin(x*band.freq + time*band.speed + band.phase)*band.amp;
+          if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        }
+        ctx.strokeStyle = `rgba(${band.color},${alpha})`;
+        ctx.lineWidth = lineWidth;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      });
+    });
+  }
+
+  function tick(time){
     if(!screens.landing.classList.contains('active')){
       requestAnimationFrame(tick);
       return;
     }
     ctx.clearRect(0,0,w,h);
+    drawAurora(time || 0);
     particles.forEach(p => {
       p.y += p.vy;
       p.x += p.vx;
@@ -1033,7 +1035,7 @@ function showScreen(name){
     ctx.shadowBlur = 0;
     requestAnimationFrame(tick);
   }
-  tick();
+  tick(0);
 })();
 
 /* =========================================================
@@ -1491,6 +1493,15 @@ function drawPowerup(pu, scale, sx, sy, frame){
 }
 
 let game = null;
+const CHARACTER_IMG_CACHE = {};
+function getCharacterImage(character){
+  if(!CHARACTER_IMG_CACHE[character.id]){
+    const im = new Image();
+    im.src = character.img; // base64 data URI, decodes essentially instantly
+    CHARACTER_IMG_CACHE[character.id] = im;
+  }
+  return CHARACTER_IMG_CACHE[character.id];
+}
 
 function startGame(character){
   showScreen('game');
@@ -1527,6 +1538,7 @@ function startGame(character){
 
   game = {
     character,
+    characterImgEl: getCharacterImage(character),
     speed: baseSpeed,
     baseSpeed,
     chaosFactor, luckFactor, jumpFactor,
@@ -1748,7 +1760,7 @@ function updateGame(){
 
   const rawScore = g.worldX / 6 * (1 + g.luckFactor*0.15);
   const currentScore = Math.floor(rawScore) + g.bonusScore;
-  g.colorProgress = Math.min(1, rawScore / 900);
+  g.colorProgress = Math.min(1, rawScore / 1800); // was 900 — takes noticeably longer to reach green now
 
   if(g.invincibleTimer > 0) g.invincibleTimer--;
   if(g.bombFlash > 0) g.bombFlash--;
@@ -1763,18 +1775,17 @@ function updateGame(){
   // subtle camera sway while running
   g.camWobble = Math.sin(g.frame*0.05) * 3;
 
-  // one-shot text flashes as the palette crosses each milestone
+  // milestones still trigger a soft shake + particle burst, but no text banner
+  // on screen anymore (was cluttering the top of the play area)
   FLASH_STAGES.forEach((stage, i) => {
     const key = i === 0 ? 'p30' : i === 1 ? 'p60' : 'p90';
     if(!g.flags[key] && g.colorProgress >= stage.at){
       g.flags[key] = true;
-      triggerFlash(g, stage.text);
       triggerShake(g, 5, 14);
       const milestonePal = getPalette(g.colorProgress);
       burstParticles(g, VANISH_X, NEAR_Y*0.6, `rgb(${milestonePal.accent})`, 14, 4);
     }
   });
-  if(g.flash){ g.flash.life--; if(g.flash.life<=0) g.flash=null; }
 
   // player lane offset smoothly interpolates toward the target lane
   const targetOffset = LANE_OFFSETS[g.lane];
@@ -2076,17 +2087,26 @@ function drawGame(){
   }
 
   roundRect(ctx2, -31, -31, 62, 62, 14);
-  ctx2.fillStyle = g.character.color;
-  ctx2.fill();
+  const charImg = g.characterImgEl;
+  if(charImg && charImg.complete && charImg.naturalWidth > 0){
+    ctx2.save();
+    ctx2.clip(); // clip to the rounded-rect path just built above
+    ctx2.drawImage(charImg, -31, -31, 62, 62);
+    ctx2.restore();
+  } else {
+    // fallback while the image decodes (data URIs load near-instantly, so this is brief)
+    ctx2.fillStyle = g.character.color;
+    ctx2.fill();
+    ctx2.fillStyle = '#fff';
+    ctx2.font = "bold 26px 'Rajdhani', sans-serif";
+    ctx2.textAlign = 'center'; ctx2.textBaseline = 'middle';
+    ctx2.fillText(g.character.name.charAt(0).toUpperCase(), 0, 2);
+  }
   ctx2.lineWidth = 2;
   ctx2.strokeStyle = g.invincibleTimer > 0
     ? `hsl(${(g.frame*8)%360},90%,70%)`
     : `rgba(${pal.accent},${0.4+0.5*g.colorProgress})`;
   ctx2.stroke();
-  ctx2.fillStyle = '#fff';
-  ctx2.font = "bold 26px 'Rajdhani', sans-serif";
-  ctx2.textAlign = 'center'; ctx2.textBaseline = 'middle';
-  ctx2.fillText(g.character.name.charAt(0).toUpperCase(), 0, 2);
   ctx2.restore();
 
   // Chaos Bomb screen flash
