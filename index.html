@@ -360,6 +360,21 @@ h1.title::before, h1.title::after{
 .stat-fill.luck{background:linear-gradient(90deg,#FFD23F,#fff0a8);}
 
 .select-dots{display:flex;gap:6px;margin-top:16px;z-index:2;}
+.name-input-row{
+  display:flex;align-items:center;gap:8px;margin-top:16px;z-index:2;
+}
+.name-input-label{
+  font-family:var(--font-mono);font-size:10px;letter-spacing:0.06em;
+  color:var(--text-lo);text-transform:uppercase;
+}
+.name-input{
+  font-family:var(--font-mono);font-size:13px;color:var(--text-hi);
+  background:var(--bg-panel);border:2px solid rgba(131,110,249,0.4);
+  border-radius:6px;padding:8px 12px;width:150px;
+  outline:none;
+}
+.name-input:focus{border-color:var(--rh-green);}
+.name-input::placeholder{color:var(--text-lo);opacity:0.6;}
 .select-dot{width:6px;height:6px;border-radius:50%;background:var(--chog-purple-dim);transition:background 0.2s ease, width 0.2s ease;}
 .select-dot.active{background:var(--rh-green);width:18px;border-radius:3px;}
 
@@ -543,9 +558,13 @@ h1.title::before, h1.title::after{
 /* ================= GAME OVER ================= */
 #screen-gameover{
   background:radial-gradient(ellipse 70% 50% at 50% 30%, rgba(255,45,175,0.12), transparent 60%), var(--bg-void);
-  padding:24px;
+  padding:32px 24px calc(48px + env(safe-area-inset-bottom, 0px)) 24px;
   overflow-y:auto;
   touch-action:pan-y;
+  justify-content:flex-start !important; /* was center — centering clipped content top+bottom when it overflowed a short viewport */
+}
+#screen-gameover.active{
+  padding-top:max(32px, env(safe-area-inset-top, 0px));
 }
 .go-reveal{
   opacity:0;
@@ -589,7 +608,7 @@ h1.title::before, h1.title::after{
 }
 .go-best-pill b{display:block;font-size:16px;color:var(--text-hi);margin-top:2px;letter-spacing:0.01em;}
 .go-sub{margin-top:6px;font-size:12px;color:var(--text-lo);text-align:center;min-height:16px;}
-.go-actions{display:flex;gap:14px;margin-top:26px;flex-wrap:wrap;justify-content:center;}
+.go-actions{display:flex;gap:14px;margin-top:32px;flex-wrap:wrap;justify-content:center;}
 .go-btn{
   font-family:var(--font-display);font-weight:700;font-size:14px;
   letter-spacing:0.08em;text-transform:uppercase;
@@ -601,7 +620,7 @@ h1.title::before, h1.title::after{
 .go-btn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 0 currentColor;}
 
 .share-score-btn{
-  margin-top:16px;
+  margin-top:24px;
   font-family:var(--font-display);font-weight:700;font-size:15px;
   letter-spacing:0.09em;text-transform:uppercase;
   color:var(--bg-void);
@@ -612,11 +631,11 @@ h1.title::before, h1.title::after{
 }
 .share-score-btn:active{transform:translate(3px,3px);box-shadow:2px 2px 0 0 var(--text-hi);}
 .share-note{
-  margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--text-lo);text-align:center;
+  margin-top:10px;font-family:var(--font-mono);font-size:11px;color:var(--text-lo);text-align:center;
 }
 
 .share-actions-row{
-  display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;justify-content:center;
+  display:flex;gap:10px;margin-top:22px;flex-wrap:wrap;justify-content:center;
 }
 .share-x-btn, .share-save-btn{
   font-family:var(--font-mono);font-weight:700;font-size:13px;
@@ -633,6 +652,49 @@ h1.title::before, h1.title::after{
   border:2px solid var(--chog-purple);box-shadow:4px 4px 0 0 rgba(131,110,249,0.5);
 }
 .share-x-btn:active, .share-save-btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 0 currentColor;}
+
+/* ================= HOW TO PLAY ================= */
+#screen-howto{
+  background:linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-void) 100%);
+  padding:24px;
+  overflow-y:auto;
+  touch-action:pan-y;
+  justify-content:flex-start !important;
+}
+#screen-howto.active{padding-top:max(28px, env(safe-area-inset-top, 0px));padding-bottom:calc(40px + env(safe-area-inset-bottom, 0px));}
+.howto-inner{width:100%;max-width:560px;margin:0 auto;display:flex;flex-direction:column;align-items:center;}
+.howto-title{
+  font-family:var(--font-display);font-weight:700;font-size:clamp(26px,5vw,36px);
+  text-transform:uppercase;letter-spacing:0.02em;text-align:center;
+}
+.howto-sub{color:var(--text-lo);font-size:13px;margin-top:6px;text-align:center;}
+.howto-block{width:100%;margin-top:26px;}
+.howto-block-label{
+  font-family:var(--font-mono);font-size:11px;letter-spacing:0.08em;
+  color:var(--text-lo);text-transform:uppercase;margin-bottom:10px;
+  border-left:3px solid var(--chog-purple);padding-left:8px;
+}
+.howto-block-label.good{border-left-color:var(--rh-green);color:var(--rh-green);}
+.howto-block-label.bad{border-left-color:var(--danger);color:var(--danger);}
+.howto-controls-row{display:flex;gap:10px;flex-wrap:wrap;}
+.howto-control-card{
+  flex:1 1 200px;background:var(--bg-panel);border:2px solid rgba(131,110,249,0.35);
+  border-radius:10px;padding:14px;display:flex;gap:10px;align-items:flex-start;
+  box-shadow:4px 4px 0 0 rgba(131,110,249,0.3);
+}
+.howto-control-icon{font-size:22px;line-height:1;}
+.howto-control-text{font-size:12px;color:var(--text-lo);line-height:1.5;}
+.howto-control-text b{color:var(--text-hi);font-family:var(--font-display);text-transform:uppercase;font-size:12px;}
+.howto-legend-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+.howto-legend-card{
+  background:var(--bg-panel);border-radius:10px;padding:10px;text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+}
+.howto-legend-card.good{border:2px solid rgba(0,200,5,0.4);box-shadow:3px 3px 0 0 rgba(0,200,5,0.3);}
+.howto-legend-card.bad{border:2px solid rgba(255,77,94,0.4);box-shadow:3px 3px 0 0 rgba(255,77,94,0.3);}
+.howto-legend-card canvas{background:rgba(0,0,0,0.25);border-radius:8px;}
+.howto-legend-name{font-family:var(--font-display);font-weight:700;font-size:12px;text-transform:uppercase;color:var(--text-hi);}
+.howto-legend-desc{font-size:10.5px;color:var(--text-lo);line-height:1.35;}
 
 /* ================= LEADERBOARD ================= */
 #screen-leaderboard{
@@ -727,13 +789,54 @@ h1.title::before, h1.title::after{
 
     <div class="select-dots" id="select-dots"></div>
 
+    <div class="name-input-row">
+      <label for="player-name-input" class="name-input-label">YOUR NAME</label>
+      <input type="text" id="player-name-input" class="name-input" placeholder="Anon Chog" maxlength="18" autocomplete="off">
+    </div>
+
     <div class="select-footer">
       <div class="high-score-line" id="char-best-line">Best with this Chog: <b>0</b></div>
       <button class="lock-in-btn" id="btn-lockin">Lock In &amp; Enter Trenches</button>
       <div class="select-footer-row">
         <button class="leaderboard-btn" id="btn-leaderboard-select">LEADERBOARD</button>
+        <button class="leaderboard-btn" id="btn-howto-select">HOW TO PLAY</button>
         <button class="back-btn" id="btn-back-landing">&larr; back</button>
       </div>
+    </div>
+  </section>
+
+  <!-- ============ HOW TO PLAY ============ -->
+  <section id="screen-howto" class="screen">
+    <div class="howto-inner">
+      <h2 class="howto-title">HOW TO PLAY</h2>
+      <p class="howto-sub">Quick rundown before you enter the trenches.</p>
+
+      <div class="howto-block">
+        <div class="howto-block-label">CONTROLS</div>
+        <div class="howto-controls-row">
+          <div class="howto-control-card">
+            <div class="howto-control-icon">⌨</div>
+            <div class="howto-control-text"><b>Desktop</b><br>A / D or ←/→ to switch lanes<br>W / ↑ / Space to hop</div>
+          </div>
+          <div class="howto-control-card">
+            <div class="howto-control-icon">👆</div>
+            <div class="howto-control-text"><b>Mobile</b><br>Swipe left/right to switch lanes<br>Tap to hop</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="howto-block">
+        <div class="howto-block-label good">COLLECT — THESE HELP YOU</div>
+        <div class="howto-legend-grid" id="howto-collect-grid"></div>
+      </div>
+
+      <div class="howto-block">
+        <div class="howto-block-label bad">AVOID — THESE END YOUR RUN</div>
+        <div class="howto-legend-grid" id="howto-avoid-grid"></div>
+      </div>
+
+      <button class="lock-in-btn" id="btn-howto-start" style="margin-top:26px;">GOT IT — START RUN</button>
+      <button class="back-btn" id="btn-howto-back" style="margin-top:10px;">&larr; back to select</button>
     </div>
   </section>
 
@@ -879,6 +982,14 @@ const CHARACTERS = [
 const LS_SELECTED = 'chog_journey_selected_char';
 const LS_HIGH_GLOBAL = 'chog_journey_high_global';
 const LS_HIGH_PREFIX = 'chog_journey_high_';
+const LS_PLAYER_NAME = 'chog_journey_player_name';
+
+function getPlayerName(){
+  return (localStorage.getItem(LS_PLAYER_NAME) || '').trim();
+}
+function setPlayerName(name){
+  localStorage.setItem(LS_PLAYER_NAME, name.trim().slice(0, 18));
+}
 
 function getSelectedCharId(){
   const saved = localStorage.getItem(LS_SELECTED);
@@ -917,7 +1028,8 @@ function getLeaderboard(){
 }
 function saveRunToLeaderboard(score, character){
   const lb = getLeaderboard();
-  lb.push({ score, charId: character.id, charName: character.name, ts: Date.now() });
+  const playerName = getPlayerName();
+  lb.push({ score, charId: character.id, charName: character.name, playerName, ts: Date.now() });
   lb.sort((a,b) => b.score - a.score);
   const trimmed = lb.slice(0, LEADERBOARD_MAX);
   localStorage.setItem(LS_LEADERBOARD, JSON.stringify(trimmed));
@@ -940,6 +1052,7 @@ function formatRelativeTime(ts){
 const screens = {
   landing: document.getElementById('screen-landing'),
   select: document.getElementById('screen-select'),
+  howto: document.getElementById('screen-howto'),
   game: document.getElementById('screen-game'),
   gameover: document.getElementById('screen-gameover'),
   leaderboard: document.getElementById('screen-leaderboard')
@@ -1158,6 +1271,10 @@ carouselOuter.addEventListener('pointerleave', () => { if(isDragging) stopDrag()
 /* ---------- Leaderboard screen ---------- */
 let leaderboardReturnScreen = 'select';
 
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
 function renderLeaderboard(){
   const listEl = document.getElementById('lb-list');
   const entries = getLeaderboard();
@@ -1168,14 +1285,15 @@ function renderLeaderboard(){
   listEl.innerHTML = entries.map((e, i) => {
     const c = CHARACTERS.find(ch => ch.id === e.charId);
     const img = c ? c.img : CHARACTERS[CHARACTERS.length-1].img;
-    const name = e.charName || (c ? c.name : 'Chog');
+    const charName = e.charName || (c ? c.name : 'Chog');
+    const displayName = e.playerName ? escapeHtml(e.playerName) : 'Anon Chog';
     return `
       <div class="lb-row ${i === 0 ? 'rank-1' : ''}" style="animation-delay:${Math.min(i,10)*45}ms">
         <div class="lb-rank">${i+1}</div>
-        <img src="${img}" alt="${name}">
+        <img src="${img}" alt="${charName}">
         <div class="lb-info">
-          <div class="lb-name">${name}</div>
-          <div class="lb-time">${formatRelativeTime(e.ts)}</div>
+          <div class="lb-name">${displayName}</div>
+          <div class="lb-time">${charName} &bull; ${formatRelativeTime(e.ts)}</div>
         </div>
         <div class="lb-score">${e.score}</div>
       </div>
@@ -1205,9 +1323,80 @@ document.getElementById('carousel-next').addEventListener('click', () => {
   renderCarousel();
 });
 
+const LS_SEEN_HOWTO = 'chog_journey_seen_howto';
+let pendingStartCharacter = null;
+
+const HOWTO_COLLECTIBLES = [
+  { kind:'coin', name:'$CHOG Coin', desc:'Bonus score + a small speed boost' },
+  { kind:'bomb', name:'Chaos Bomb', desc:'Clears nearby obstacles in a blast' },
+  { kind:'unhinged', name:'Unhinged Mode', desc:'Temporary invincibility — smash through obstacles' }
+];
+const HOWTO_OBSTACLES = [
+  { type:'sniper', name:'Sniper Bot', desc:'Switch lanes to dodge it' },
+  { type:'rug', name:'Rug Pull', desc:'Switch lanes to dodge it' },
+  { type:'bubble', name:'Bubblemap Cluster', desc:'Switch lanes to dodge it' },
+  { type:'fud', name:'FUD Cloud', desc:'Looks soft — still ends your run if you touch it' }
+];
+
+function buildHowToCard(gridEl, isGood, iconDrawFn){
+  const card = document.createElement('div');
+  card.className = 'howto-legend-card ' + (isGood ? 'good' : 'bad');
+  const cv = document.createElement('canvas');
+  cv.width = 64; cv.height = 64;
+  iconDrawFn(cv.getContext('2d'));
+  card.appendChild(cv);
+  return card;
+}
+
+function renderHowToLegend(){
+  const collectGrid = document.getElementById('howto-collect-grid');
+  const avoidGrid = document.getElementById('howto-avoid-grid');
+  if(collectGrid.dataset.built) return; // build once — icons never change
+  collectGrid.dataset.built = '1';
+
+  HOWTO_COLLECTIBLES.forEach(item => {
+    const card = buildHowToCard(collectGrid, true, (cctx) => {
+      if(item.kind === 'coin') drawCoin({ spin: 0 }, 1.15, 32, 32, cctx);
+      else drawPowerup({ type: item.kind, spin: 0 }, 1.1, 32, 32, 0, cctx);
+    });
+    card.innerHTML += `<div class="howto-legend-name">${item.name}</div><div class="howto-legend-desc">${item.desc}</div>`;
+    collectGrid.appendChild(card);
+  });
+
+  HOWTO_OBSTACLES.forEach(item => {
+    const card = buildHowToCard(avoidGrid, false, (cctx) => {
+      drawObstacle({ type: item.type, seed: 500 }, 1.0, 32, 34, cctx);
+    });
+    card.innerHTML += `<div class="howto-legend-name">${item.name}</div><div class="howto-legend-desc">${item.desc}</div>`;
+    avoidGrid.appendChild(card);
+  });
+}
+
+function showHowTo(startCharacter){
+  pendingStartCharacter = startCharacter;
+  renderHowToLegend();
+  showScreen('howto');
+}
+
 document.getElementById('btn-lockin').addEventListener('click', () => {
   selectChar(centerIndex);
-  startGame(CHARACTERS[selectedIndex]);
+  const character = CHARACTERS[selectedIndex];
+  if(!localStorage.getItem(LS_SEEN_HOWTO)){
+    showHowTo(character); // first-ever run: teach the controls + legend before starting
+  } else {
+    startGame(character);
+  }
+});
+document.getElementById('btn-howto-select').addEventListener('click', () => {
+  showHowTo(null); // opened on demand — Start Run uses whichever character is centered
+});
+document.getElementById('btn-howto-start').addEventListener('click', () => {
+  localStorage.setItem(LS_SEEN_HOWTO, '1');
+  startGame(pendingStartCharacter || CHARACTERS[centerIndex]);
+});
+document.getElementById('btn-howto-back').addEventListener('click', () => {
+  showScreen('select');
+  requestAnimationFrame(renderCarousel);
 });
 
 document.getElementById('btn-back-landing').addEventListener('click', () => {
@@ -1238,6 +1427,11 @@ document.getElementById('btn-begin').addEventListener('click', () => {
   requestAnimationFrame(renderCarousel);
 });
 
+const nameInput = document.getElementById('player-name-input');
+nameInput.value = getPlayerName();
+nameInput.addEventListener('input', () => setPlayerName(nameInput.value));
+nameInput.addEventListener('blur', () => { nameInput.value = getPlayerName(); });
+
 /* =========================================================
    GAME — 3-lane front-facing perspective runner
    Camera sits behind/above the player; lanes converge toward a
@@ -1252,6 +1446,7 @@ let CW, CH;
 let HORIZON_Y, NEAR_Y, VANISH_X, NEAR_SPREAD, FAR_SPREAD;
 const LANE_OFFSETS = [-1, 0, 1]; // left, center, right
 const RUN_SECONDS = 60;
+const WARMUP_SECONDS = 8; // first 8s ease difficulty in — addresses "too fast for a starter" feedback
 
 function resizeCanvas(){
   const w = canvas.offsetWidth || window.innerWidth;
@@ -1347,11 +1542,22 @@ function getColorStageLabel(progress){
 }
 
 /* ---- obstacle / coin / power-up visuals, drawn at a screen position + scale ---- */
-function drawObstacle(o, scale, sx, sy){
-  const c = ctx2;
+function drawObstacle(o, scale, sx, sy, ctxOverride){
+  const c = ctxOverride || ctx2;
   const bw = 58*scale, bh = 64*scale; // bumped up from 44/50 — obstacles need to read clearly at speed
   c.save();
   c.translate(sx, sy);
+  // consistent red "danger" ring under every obstacle type, regardless of shape —
+  // players confused clouds/bubbles for power-ups, this gives one universal
+  // avoid-me signal on top of each type's individual design
+  c.save();
+  c.globalAlpha = 0.55;
+  c.strokeStyle = 'rgba(255,77,94,0.75)';
+  c.lineWidth = Math.max(1.5, 2.5*scale);
+  c.beginPath();
+  c.arc(0, bh*0.08, bw*0.66, 0, Math.PI*2);
+  c.stroke();
+  c.restore();
   if(o.type === 'sniper'){
     c.fillStyle = '#2a1030';
     roundRect(c, -bw*0.28, -bh*0.1, bw*0.56, bh*0.66, 4*scale);
@@ -1407,8 +1613,8 @@ function drawObstacle(o, scale, sx, sy){
   }
   c.restore();
 }
-function drawCoin(cn, scale, sx, sy){
-  const c = ctx2;
+function drawCoin(cn, scale, sx, sy, ctxOverride){
+  const c = ctxOverride || ctx2;
   c.save();
   c.translate(sx, sy);
   c.shadowColor = 'rgba(255,210,63,0.8)';
@@ -1427,8 +1633,8 @@ function drawCoin(cn, scale, sx, sy){
   }
   c.restore();
 }
-function drawPowerup(pu, scale, sx, sy, frame){
-  const c = ctx2;
+function drawPowerup(pu, scale, sx, sy, frame, ctxOverride){
+  const c = ctxOverride || ctx2;
   c.save();
   c.translate(sx, sy);
   const pulse = 1 + Math.sin(frame*0.15 + pu.spin)*0.08;
@@ -1544,6 +1750,7 @@ function startGame(character){
     dodgeFlash: null,
     running: true,
     colorProgress: 0,
+    warmupMult: 0, // 0 at run start, ramps to 1 over WARMUP_SECONDS
     flags: { p30:false, p60:false, p90:false },
     flash: null,
     startTime: performance.now(),
@@ -1651,7 +1858,7 @@ function spawnObstacleWave(g){
   // Progress-aware wave: early runs use a single lane, later runs can block
   // two lanes at once but NEVER all three, so a dodge path always exists.
   const progress = g.colorProgress;
-  const canDoubleWave = Math.random() < 0.10 + progress*0.30 + g.chaosFactor*0.12;
+  const canDoubleWave = Math.random() < (0.10 + progress*0.30 + g.chaosFactor*0.12) * g.warmupMult;
   const lanes = [0,1,2];
   const laneCount = canDoubleWave ? 2 : 1;
   const chosen = [];
@@ -1721,6 +1928,12 @@ function updateGame(){
   const timerNum = document.getElementById('hud-timer-num');
   timerNum.textContent = String(Math.ceil(g.timeLeft));
   timerEl.classList.toggle('low', g.timeLeft <= 10);
+
+  // warm-up ramp: the first WARMUP_SECONDS ease obstacles/speed in gently so
+  // new players get a couple of easy seconds to get their bearings before
+  // full difficulty kicks in — goes from warmupMult 0 (gentlest) to 1 (full pace)
+  g.warmupMult = Math.min(1, elapsed / WARMUP_SECONDS);
+
   if(g.timeLeft <= 0){
     g.running = false;
     finishRun('timeup');
@@ -1790,10 +2003,11 @@ function updateGame(){
   // difficulty ramps with color progress: faster spawns, more double-lane waves
   // (gaps widened ~15% and chaos-tightening capped so higher-Chaos characters
   // don't get overwhelmed — this was a major driver of "hard to dodge" feedback)
+  // Extra gap during the WARMUP_SECONDS window fades from +30 frames to +0.
   g.spawnTimer -= 1;
   if(g.spawnTimer <= 0){
     spawnObstacleWave(g);
-    const gapBase = 66 - g.chaosFactor*12 - g.colorProgress*10;
+    const gapBase = 66 - g.chaosFactor*12 - g.colorProgress*10 + (1 - g.warmupMult)*30;
     g.spawnTimer = Math.max(28, gapBase + Math.random()*(32 - g.chaosFactor*6));
   }
   g.coinTimer -= 1;
@@ -1812,7 +2026,8 @@ function updateGame(){
   // approach rate cut a further ~20% on top of the earlier 15% reduction —
   // obstacles now take noticeably longer to close the distance, giving more
   // reaction time. Near-miss window widened too so dodges register more generously.
-  const approachRate = 0.00816 * (g.speed / g.baseSpeed);
+  // During warm-up, obstacles close distance at 55% pace, ramping to 100% by WARMUP_SECONDS.
+  const approachRate = 0.00816 * (g.speed / g.baseSpeed) * (0.55 + 0.45*g.warmupMult);
   const COLLIDE_T = 0.05, NEAR_MISS_T = 0.19, COLLECT_T = 0.07;
 
   // obstacles
