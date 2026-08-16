@@ -1512,7 +1512,7 @@ function startGame(character){
   const jumpFactor = character.stats.jump / 100;
   const chaosFactor = character.stats.chaos / 100;
   const luckFactor = character.stats.luck / 100;
-  const baseSpeed = 1 + speedFactor * 0.9; // world/approach speed multiplier, Speed stat -> pace
+  const baseSpeed = 0.8 * (1 + speedFactor * 0.9); // world/approach speed multiplier, Speed stat -> pace (20% slower overall per player feedback)
 
   game = {
     character,
@@ -1651,7 +1651,7 @@ function spawnObstacleWave(g){
   // Progress-aware wave: early runs use a single lane, later runs can block
   // two lanes at once but NEVER all three, so a dodge path always exists.
   const progress = g.colorProgress;
-  const canDoubleWave = Math.random() < 0.18 + progress*0.35 + g.chaosFactor*0.15;
+  const canDoubleWave = Math.random() < 0.10 + progress*0.30 + g.chaosFactor*0.12;
   const lanes = [0,1,2];
   const laneCount = canDoubleWave ? 2 : 1;
   const chosen = [];
@@ -1729,7 +1729,7 @@ function updateGame(){
 
   // forward speed ramps with distance/chaos — this drives both world speed
   // and how fast obstacles/coins approach the camera
-  g.speed = Math.min(g.baseSpeed + 2.4, g.baseSpeed + (g.worldX/2600) * (1 + g.chaosFactor*1.2));
+  g.speed = Math.min(g.baseSpeed + 1.92, g.baseSpeed + (g.worldX/2600) * (1 + g.chaosFactor*1.2));
   if(g.speedBoostTimer > 0){
     g.speed += 0.4 * (g.speedBoostTimer/24);
     g.speedBoostTimer--;
@@ -1766,8 +1766,9 @@ function updateGame(){
   });
 
   // player lane offset smoothly interpolates toward the target lane
+  // (snappier than before — 0.3 -> 0.42 — so dodges land more precisely on reaction)
   const targetOffset = LANE_OFFSETS[g.lane];
-  g.laneOffset += (targetOffset - g.laneOffset) * 0.3;
+  g.laneOffset += (targetOffset - g.laneOffset) * 0.42;
   g.player.tilt += ((targetOffset - g.laneOffset)*-0.25 - g.player.tilt) * 0.3;
 
   // cosmetic jump physics
@@ -1787,11 +1788,13 @@ function updateGame(){
   if(p.landSquash > 0) p.landSquash--;
 
   // difficulty ramps with color progress: faster spawns, more double-lane waves
+  // (gaps widened ~15% and chaos-tightening capped so higher-Chaos characters
+  // don't get overwhelmed — this was a major driver of "hard to dodge" feedback)
   g.spawnTimer -= 1;
   if(g.spawnTimer <= 0){
     spawnObstacleWave(g);
-    const gapBase = 58 - g.chaosFactor*16 - g.colorProgress*14;
-    g.spawnTimer = Math.max(22, gapBase + Math.random()*(30 - g.chaosFactor*8));
+    const gapBase = 66 - g.chaosFactor*12 - g.colorProgress*10;
+    g.spawnTimer = Math.max(28, gapBase + Math.random()*(32 - g.chaosFactor*6));
   }
   g.coinTimer -= 1;
   if(g.coinTimer <= 0){
@@ -1806,8 +1809,11 @@ function updateGame(){
     g.powerupTimer = gapBase + Math.random()*(240 - g.luckFactor*50);
   }
 
-  const approachRate = 0.0102 * (g.speed / g.baseSpeed); // 15% slower than before (was 0.012) — more reaction time
-  const COLLIDE_T = 0.05, NEAR_MISS_T = 0.16, COLLECT_T = 0.07;
+  // approach rate cut a further ~20% on top of the earlier 15% reduction —
+  // obstacles now take noticeably longer to close the distance, giving more
+  // reaction time. Near-miss window widened too so dodges register more generously.
+  const approachRate = 0.00816 * (g.speed / g.baseSpeed);
+  const COLLIDE_T = 0.05, NEAR_MISS_T = 0.19, COLLECT_T = 0.07;
 
   // obstacles
   for(let i=g.obstacles.length-1; i>=0; i--){
