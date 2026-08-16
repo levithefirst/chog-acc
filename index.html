@@ -42,6 +42,15 @@ html,body{
 button{touch-action:manipulation;} /* bigger, no double-tap-zoom delay */
 
 #app{position:relative;width:100vw;height:100vh;height:100dvh;overflow:hidden;}
+.mute-toggle{
+  position:absolute;top:14px;right:14px;z-index:50;
+  width:38px;height:38px;border-radius:8px;
+  background:rgba(10,6,18,0.6);border:2px solid rgba(131,110,249,0.4);
+  font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(4px);
+}
+.mute-toggle.is-muted{opacity:0.55;}
 
 .screen{
   position:absolute;inset:0;
@@ -744,6 +753,7 @@ h1.title::before, h1.title::after{
 </head>
 <body>
 <div id="app">
+  <button class="mute-toggle" id="global-mute-toggle" aria-label="Toggle sound">🔊</button>
 
   <!-- ============ LANDING ============ -->
   <section id="screen-landing" class="screen active">
@@ -754,7 +764,7 @@ h1.title::before, h1.title::after{
     <div class="landing-coords" aria-hidden="true">
       <span class="tl">CHOG-01 // MONAD</span>
       <span class="tr">STATUS: LIVE</span>
-      <span class="bl">v1.0</span>
+      <span class="bl">v1.2</span>
       <span class="br">CHOG WORLD ORDER</span>
     </div>
     <div class="landing-inner">
@@ -925,6 +935,108 @@ h1.title::before, h1.title::after{
    CHOG : THE JOURNEY TO ROBINHOOD
    Single-file game. Landing -> Select -> Endless Runner -> Game Over
    ========================================================= */
+
+/* =========================================================
+   SOUND — procedural Web Audio SFX, no external audio files.
+   Lazily started on first user gesture (browser autoplay policy).
+   Muted state persists in localStorage.
+   ========================================================= */
+const LS_MUTED = 'chog_journey_muted';
+let audioCtx = null;
+let sfxMuted = localStorage.getItem(LS_MUTED) === '1';
+
+function ensureAudio(){
+  if(!audioCtx){
+    try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e){ audioCtx = null; }
+  }
+  if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+['pointerdown','keydown','touchstart'].forEach(evt => {
+  window.addEventListener(evt, ensureAudio, { once: true, passive: true });
+});
+
+function setMuted(m){
+  sfxMuted = m;
+  localStorage.setItem(LS_MUTED, m ? '1' : '0');
+  document.querySelectorAll('.mute-toggle').forEach(btn => {
+    btn.textContent = sfxMuted ? '🔇' : '🔊';
+    btn.classList.toggle('is-muted', sfxMuted);
+  });
+}
+document.getElementById('global-mute-toggle').addEventListener('click', () => {
+  ensureAudio();
+  setMuted(!sfxMuted);
+});
+setMuted(sfxMuted); // reflect saved state in the icon on load
+
+/* every button in the UI gets a soft click cue for free */
+document.addEventListener('click', (e) => {
+  if(e.target.closest('button')) SFX.click();
+}, true);
+
+/* core synth primitives */
+function sfxTone(freq, duration, opts){
+  if(sfxMuted || !audioCtx) return;
+  opts = opts || {};
+  const type = opts.type || 'sine';
+  const gainPeak = opts.gain != null ? opts.gain : 0.16;
+  const glideTo = opts.glideTo;
+  const t0 = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t0);
+  if(glideTo != null) osc.frequency.exponentialRampToValueAtTime(Math.max(1,glideTo), t0 + duration);
+  gain.gain.setValueAtTime(0.0001, t0);
+  gain.gain.exponentialRampToValueAtTime(gainPeak, t0 + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+function sfxNoise(duration, opts){
+  if(sfxMuted || !audioCtx) return;
+  opts = opts || {};
+  const gainPeak = opts.gain != null ? opts.gain : 0.18;
+  const filterFreq = opts.filterFreq || 1200;
+  const t0 = audioCtx.currentTime;
+  const bufferSize = Math.floor(audioCtx.sampleRate * duration);
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<bufferSize;i++) data[i] = (Math.random()*2-1) * (1 - i/bufferSize);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buffer;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = opts.filterType || 'lowpass';
+  filter.frequency.value = filterFreq;
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(gainPeak, t0);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  src.connect(filter).connect(gain).connect(audioCtx.destination);
+  src.start(t0);
+}
+function sfxChime(notes, noteDur, opts){
+  notes.forEach((f, i) => setTimeout(() => sfxTone(f, noteDur, opts), i * noteDur * 700));
+}
+
+/* named cues used throughout the game */
+const SFX = {
+  click:      () => sfxTone(520, 0.07, { type:'square', gain:0.08 }),
+  laneSwitch: () => sfxTone(700, 0.06, { type:'square', gain:0.07, glideTo:900 }),
+  jump:       () => sfxTone(420, 0.12, { type:'triangle', gain:0.10, glideTo:680 }),
+  land:       () => sfxNoise(0.08, { gain:0.10, filterFreq:300 }),
+  coin:       () => sfxChime([880, 1320], 0.09, { type:'sine', gain:0.14 }),
+  nearMiss:   () => sfxTone(500, 0.16, { type:'sawtooth', gain:0.08, glideTo:1100 }),
+  bomb:       () => { sfxNoise(0.32, { gain:0.22, filterFreq:700 }); sfxTone(110, 0.3, { type:'sawtooth', gain:0.12, glideTo:40 }); },
+  unhinged:   () => sfxChime([440, 660, 880, 1320], 0.08, { type:'square', gain:0.10 }),
+  crash:      () => { sfxNoise(0.35, { gain:0.26, filterFreq:400 }); sfxTone(180, 0.35, { type:'sawtooth', gain:0.14, glideTo:50 }); },
+  milestone:  () => sfxChime([523, 659, 784], 0.11, { type:'triangle', gain:0.12 }),
+  tick:       () => sfxTone(900, 0.05, { type:'square', gain:0.07 }),
+  win:        () => sfxChime([523, 659, 784, 1046], 0.13, { type:'triangle', gain:0.14 }),
+  countdownStart: () => sfxTone(660, 0.1, { type:'sine', gain:0.1, glideTo:990 })
+};
 
 /* ---------- Character Data ---------- */
 const CHARACTERS = [
@@ -1359,7 +1471,10 @@ function renderHowToLegend(){
       if(item.kind === 'coin') drawCoin({ spin: 0 }, 1.15, 32, 32, cctx);
       else drawPowerup({ type: item.kind, spin: 0 }, 1.1, 32, 32, 0, cctx);
     });
-    card.innerHTML += `<div class="howto-legend-name">${item.name}</div><div class="howto-legend-desc">${item.desc}</div>`;
+    // insertAdjacentHTML (not innerHTML +=) — the latter re-serializes and
+    // re-parses the whole card, which silently wipes the canvas bitmap we
+    // just drew (canvas pixel data is never part of HTML serialization)
+    card.insertAdjacentHTML('beforeend', `<div class="howto-legend-name">${item.name}</div><div class="howto-legend-desc">${item.desc}</div>`);
     collectGrid.appendChild(card);
   });
 
@@ -1367,7 +1482,7 @@ function renderHowToLegend(){
     const card = buildHowToCard(avoidGrid, false, (cctx) => {
       drawObstacle({ type: item.type, seed: 500 }, 1.0, 32, 34, cctx);
     });
-    card.innerHTML += `<div class="howto-legend-name">${item.name}</div><div class="howto-legend-desc">${item.desc}</div>`;
+    card.insertAdjacentHTML('beforeend', `<div class="howto-legend-name">${item.name}</div><div class="howto-legend-desc">${item.desc}</div>`);
     avoidGrid.appendChild(card);
   });
 }
@@ -1544,7 +1659,7 @@ function getColorStageLabel(progress){
 /* ---- obstacle / coin / power-up visuals, drawn at a screen position + scale ---- */
 function drawObstacle(o, scale, sx, sy, ctxOverride){
   const c = ctxOverride || ctx2;
-  const bw = 58*scale, bh = 64*scale; // bumped up from 44/50 — obstacles need to read clearly at speed
+  const bw = 74*scale, bh = 80*scale; // bumped again from 58/64 — even more visible per player feedback
   c.save();
   c.translate(sx, sy);
   // consistent red "danger" ring under every obstacle type, regardless of shape —
@@ -1751,6 +1866,10 @@ function startGame(character){
     running: true,
     colorProgress: 0,
     warmupMult: 0, // 0 at run start, ramps to 1 over WARMUP_SECONDS
+    lastTickSecond: -1,
+    sceneryStage: 0,          // 0-3, bumps at 1000/2000/3000 score — changes background scenery
+    sceneryFlags: { s1:false, s2:false, s3:false },
+    speedStageMult: 1,        // steps up at each scenery milestone — game gets faster and faster
     flags: { p30:false, p60:false, p90:false },
     flash: null,
     startTime: performance.now(),
@@ -1785,6 +1904,7 @@ function moveLane(dir){
   game.lane = next;
   triggerShake(game, 1.5, 6);
   flashLaneStreak(dir);
+  SFX.laneSwitch();
   document.querySelectorAll('.lane-dot').forEach(d => {
     d.classList.toggle('active-lane', Number(d.dataset.lane) === next);
   });
@@ -1798,6 +1918,7 @@ function jumpStart(){
     p.vy = -(13 + game.jumpFactor*6)/3.2;
     p.onGround = false;
     p.jumpHeld = true;
+    SFX.jump();
   }
 }
 function jumpEnd(){
@@ -1926,8 +2047,13 @@ function updateGame(){
   g.timeLeft = Math.max(0, RUN_SECONDS - elapsed);
   const timerEl = document.getElementById('hud-timer');
   const timerNum = document.getElementById('hud-timer-num');
-  timerNum.textContent = String(Math.ceil(g.timeLeft));
+  const timeLeftCeil = Math.ceil(g.timeLeft);
+  timerNum.textContent = String(timeLeftCeil);
   timerEl.classList.toggle('low', g.timeLeft <= 10);
+  if(timeLeftCeil <= 5 && timeLeftCeil >= 1 && timeLeftCeil !== g.lastTickSecond){
+    g.lastTickSecond = timeLeftCeil;
+    SFX.tick();
+  }
 
   // warm-up ramp: the first WARMUP_SECONDS ease obstacles/speed in gently so
   // new players get a couple of easy seconds to get their bearings before
@@ -1941,8 +2067,10 @@ function updateGame(){
   }
 
   // forward speed ramps with distance/chaos — this drives both world speed
-  // and how fast obstacles/coins approach the camera
-  g.speed = Math.min(g.baseSpeed + 1.92, g.baseSpeed + (g.worldX/2600) * (1 + g.chaosFactor*1.2));
+  // and how fast obstacles/coins approach the camera. speedStageMult steps
+  // up at each scenery milestone (1000/2000/3000 score) for a noticeable
+  // "it's getting faster" jolt on top of the smooth continuous ramp.
+  g.speed = Math.min(g.baseSpeed + 1.92, g.baseSpeed + (g.worldX/2600) * (1 + g.chaosFactor*1.2)) * g.speedStageMult;
   if(g.speedBoostTimer > 0){
     g.speed += 0.4 * (g.speedBoostTimer/24);
     g.speedBoostTimer--;
@@ -1952,6 +2080,24 @@ function updateGame(){
   const rawScore = g.worldX / 6 * (1 + g.luckFactor*0.15);
   const currentScore = Math.floor(rawScore) + g.bonusScore;
   g.colorProgress = Math.min(1, rawScore / 1800); // was 900 — takes noticeably longer to reach green now
+
+  // scenery milestones — background changes shape/density at 1000/2000/3000
+  // score, and each crossing bumps the speed multiplier a notch
+  if(!g.sceneryFlags.s1 && currentScore >= 1000){
+    g.sceneryFlags.s1 = true; g.sceneryStage = 1; g.speedStageMult += 0.12;
+    triggerShake(g, 4, 12); SFX.milestone();
+    burstParticles(g, VANISH_X, NEAR_Y*0.5, `rgb(${getPalette(g.colorProgress).accent})`, 12, 4);
+  }
+  if(!g.sceneryFlags.s2 && currentScore >= 2000){
+    g.sceneryFlags.s2 = true; g.sceneryStage = 2; g.speedStageMult += 0.12;
+    triggerShake(g, 5, 14); SFX.milestone();
+    burstParticles(g, VANISH_X, NEAR_Y*0.5, `rgb(${getPalette(g.colorProgress).accent})`, 14, 4);
+  }
+  if(!g.sceneryFlags.s3 && currentScore >= 3000){
+    g.sceneryFlags.s3 = true; g.sceneryStage = 3; g.speedStageMult += 0.12;
+    triggerShake(g, 6, 16); SFX.milestone();
+    burstParticles(g, VANISH_X, NEAR_Y*0.5, `rgb(${getPalette(g.colorProgress).accent})`, 16, 4);
+  }
 
   if(g.invincibleTimer > 0) g.invincibleTimer--;
   if(g.bombFlash > 0) g.bombFlash--;
@@ -1993,7 +2139,7 @@ function updateGame(){
   p._jumpY = (p._jumpY || 0) + p.vy;
   if(p._jumpY >= 0){
     p._jumpY = 0; p.vy = 0;
-    if(!wasOnGround) p.landSquash = 8;
+    if(!wasOnGround){ p.landSquash = 8; SFX.land(); }
     p.onGround = true;
   } else {
     p.onGround = false;
@@ -2045,6 +2191,7 @@ function updateGame(){
       burstParticles(g, sx, sy, `rgb(${getPalette(g.colorProgress).accent})`, 10, 4);
       g.dodgeFlash = { text:'CLEAN DODGE', life:44, maxLife:44 };
       g.floatTexts.push({ x:sx, y:sy, text:`+${bonus}`, life:36, maxLife:36, color:'#6effa0' });
+      SFX.nearMiss();
     }
 
     if(o.dist <= COLLIDE_T){
@@ -2056,11 +2203,13 @@ function updateGame(){
           burstParticles(g, sx, NEAR_Y, g.character.color, 10, 5);
           g.floatTexts.push({ x:sx, y:NEAR_Y-40, text:`+${bonus}`, life:36, maxLife:36, color:'#FFD23F' });
           g.obstacles.splice(i,1);
+          SFX.click();
         } else {
           triggerShake(g, 14, 24);
           const sx = laneX(LANE_OFFSETS[o.lane], 0, g.camWobble);
           burstParticles(g, sx, NEAR_Y, g.character.color, 22, 6);
           g.hitStop = 2; // freeze-frame impact before the dying beat takes over
+          SFX.crash();
           return;
         }
       } else {
@@ -2087,6 +2236,7 @@ function updateGame(){
         burstParticles(g, sx, NEAR_Y, '#FFD23F', 12, 4);
         g.floatTexts.push({ x:sx, y:NEAR_Y-40, text:`+${bonus}`, life:34, maxLife:34, color:'#FFD23F' });
         triggerShake(g, 2, 8);
+        SFX.coin();
       }
       g.coins.splice(i,1);
     } else if(cn.dist < -0.05){
@@ -2114,10 +2264,12 @@ function updateGame(){
           triggerShake(g, 7 + Math.min(6,cleared), 16);
           burstParticles(g, sx, NEAR_Y, '#ff2daf', 18, 6);
           if(bonus > 0) g.floatTexts.push({ x:sx, y:NEAR_Y-40, text:`+${bonus}`, life:36, maxLife:36, color:'#ff8fd6' });
+          SFX.bomb();
         } else {
           g.invincibleTimer = Math.round(90 + g.chaosFactor*150);
           triggerShake(g, 6, 14);
           burstParticles(g, sx, NEAR_Y, '#FFD23F', 18, 6);
+          SFX.unhinged();
         }
       }
       g.powerups.splice(i,1);
@@ -2152,6 +2304,75 @@ function updateGame(){
   ringFill.style.strokeDashoffset = String(TIMER_RING_CIRC * (1 - pct));
 }
 
+/* background scenery — 4 distinct stages tied to score milestones so the
+   track visibly changes as a run progresses (1000 / 2000 / 3000 points),
+   layered on top of the existing purple->teal->green color progression */
+function drawSkyline(g, pal){
+  const stage = g.sceneryStage;
+  const skyOff = (g.worldX*0.05) % 200;
+
+  if(stage === 0){
+    // simple, sparse blocks — baseline look for the opening stretch of a run
+    ctx2.fillStyle = `rgba(${pal.accent},0.08)`;
+    for(let x=-skyOff; x<CW; x+=180){
+      ctx2.fillRect(x, HORIZON_Y-60, 90, 60);
+    }
+    return;
+  }
+
+  if(stage === 1){
+    // denser, varied-height skyline — first "things are ramping up" signal
+    ctx2.fillStyle = `rgba(${pal.accent},0.10)`;
+    let i = 0;
+    for(let x=-skyOff; x<CW; x+=130, i++){
+      const h = 50 + (i%4)*20;
+      ctx2.fillRect(x, HORIZON_Y-h, 70, h);
+    }
+    return;
+  }
+
+  // stage 2 and 3 both draw a distant mountain silhouette behind a denser skyline
+  ctx2.fillStyle = `rgba(${pal.accent},0.06)`;
+  ctx2.beginPath();
+  ctx2.moveTo(0, HORIZON_Y);
+  for(let x=0; x<=CW; x+=40){
+    const y = HORIZON_Y - 30 - Math.abs(Math.sin((x + g.worldX*0.02)*0.01)) * (stage === 3 ? 60 : 50);
+    ctx2.lineTo(x, y);
+  }
+  ctx2.lineTo(CW, HORIZON_Y);
+  ctx2.closePath();
+  ctx2.fill();
+
+  ctx2.fillStyle = `rgba(${pal.accent},0.12)`;
+  let i2 = 0;
+  const step = stage === 3 ? 85 : 100;
+  for(let x=-skyOff; x<CW; x+=step, i2++){
+    const h = 40 + (i2 % (stage === 3 ? 6 : 5)) * (stage === 3 ? 26 : 22);
+    ctx2.fillRect(x, HORIZON_Y-h, step*0.55, h);
+  }
+
+  // sprinkle of distant lights, present from stage 2 onward
+  ctx2.fillStyle = `rgba(${pal.accent},0.5)`;
+  for(let k=0;k<12;k++){
+    const lx = (k*97 + g.worldX*0.03) % CW;
+    const ly = HORIZON_Y - 20 - (k%6)*8;
+    ctx2.fillRect(lx, ly, 2, 2);
+  }
+
+  if(stage === 3){
+    // digital rain streaks — the max-intensity signature, reinforces "it's fast now"
+    ctx2.strokeStyle = `rgba(${pal.accent},0.28)`;
+    ctx2.lineWidth = 1;
+    for(let k=0;k<10;k++){
+      const rx = (k*113 + g.worldX*0.4) % CW;
+      ctx2.beginPath();
+      ctx2.moveTo(rx, 0);
+      ctx2.lineTo(rx, HORIZON_Y*0.6);
+      ctx2.stroke();
+    }
+  }
+}
+
 function drawGame(){
   const g = game;
   ctx2.clearRect(0,0,CW,CH);
@@ -2174,12 +2395,8 @@ function drawGame(){
   ctx2.fillStyle = bgGrad;
   ctx2.fillRect(0,0,CW,CH);
 
-  // distant skyline for atmosphere
-  ctx2.fillStyle = `rgba(${pal.accent},0.08)`;
-  const skyOff = (g.worldX*0.05) % 180;
-  for(let x=-skyOff; x<CW; x+=180){
-    ctx2.fillRect(x, HORIZON_Y-60, 90, 60);
-  }
+  // distant skyline — changes shape/density at each scenery milestone (1000/2000/3000)
+  drawSkyline(g, pal);
 
   const camW = g.camWobble;
 
@@ -2229,7 +2446,7 @@ function drawGame(){
     if(d.kind === 'obstacle'){
       // obstacles get their own boosted + floored scale so they read clearly
       // even near the horizon, instead of shrinking to near-invisible dots
-      const obstacleScale = Math.max(scale * 1.55, 0.3);
+      const obstacleScale = Math.max(scale * 1.85, 0.38);
       drawObstacle(d.ref, obstacleScale, sx, sy);
     }
     else if(d.kind === 'coin') drawCoin(d.ref, scale, sx, sy);
@@ -2433,6 +2650,7 @@ function finishRun(reason){
     message = WIN_MESSAGES[Math.floor(Math.random()*WIN_MESSAGES.length)];
     isWin = true;
     triggerShake(g, 6, 16);
+    SFX.win();
   } else {
     message = DEATH_MESSAGES[Math.floor(Math.random()*DEATH_MESSAGES.length)];
     isWin = message.indexOf('Robinhood green') !== -1;
